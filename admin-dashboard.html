@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Total Registers</title>
+    <!-- Add FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body class="admin-body">
+    <div class="dashboard-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fa-solid fa-graduation-cap"></i> EduAdmin</h2>
+            </div>
+            <ul class="sidebar-nav">
+                <li><a href="#" class="active"><i class="fa-solid fa-users"></i> Registered Students</a></li>
+                <!-- Add more links here in the future if needed -->
+            </ul>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="header-left">
+                    <h1>Dashboard Overview</h1>
+                </div>
+                <div class="header-right">
+                    <span class="admin-profile"><i class="fa-solid fa-user-circle"></i> Admin</span>
+                    <a href="#" id="logoutBtn" class="admin-link"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="dashboard-content">
+                <div class="card table-card">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-clipboard-list"></i> Total Registers Report</h2>
+                        <p>A comprehensive list of all currently registered students.</p>
+                    </div>
+
+                    <div id="loading" class="loading-spinner" style="display: none;">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Loading records...
+                    </div>
+                    <div id="error" class="message error" style="display: none;"></div>
+
+                    <div class="table-responsive">
+                        <table id="studentsTable" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Date of Birth</th>
+                                    <th>Address</th>
+                                    <th>Registered At</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentsBody">
+                                <!-- Rows will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            sessionStorage.removeItem('adminToken');
+            window.location.href = 'admin-login.html';
+        });
+
+        async function fetchStudents() {
+            const token = sessionStorage.getItem('adminToken');
+            if (!token) {
+                window.location.href = 'admin-login.html';
+                return;
+            }
+
+            const loadingEl = document.getElementById('loading');
+            const errorEl = document.getElementById('error');
+            const tbody = document.getElementById('studentsBody');
+
+            loadingEl.style.display = 'block';
+            errorEl.style.display = 'none';
+            tbody.innerHTML = ''; // clear previous
+
+            try {
+                const response = await fetch('/api/admin/students', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.status === 401 || response.status === 403) {
+                    sessionStorage.removeItem('adminToken');
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch data');
+                }
+
+                const students = await response.json();
+
+                loadingEl.style.display = 'none';
+
+                if (students.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No students registered yet.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = students.map(s => `
+                    <tr>
+                        <td><strong>#${s.id}</strong></td>
+                        <td>
+                            <div class="table-user">
+                                <span class="user-avatar">${s.name.charAt(0).toUpperCase()}</span>
+                                <span>${s.name}</span>
+                            </div>
+                        </td>
+                        <td><a href="mailto:${s.email}" class="table-link">${s.email}</a></td>
+                        <td>${s.phone || '<span class="text-muted">-</span>'}</td>
+                        <td>${s.dob || '<span class="text-muted">-</span>'}</td>
+                        <td><div class="truncate-text" title="${s.address || ''}">${s.address || '<span class="text-muted">-</span>'}</div></td>
+                        <td>${new Date(s.created_at).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                    </tr>
+                `).join('');
+
+            } catch (err) {
+                loadingEl.style.display = 'none';
+                errorEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error loading reports. Please try again.';
+                errorEl.style.display = 'block';
+                console.error(err);
+            }
+        }
+
+        fetchStudents();
+    </script>
+</body>
+
+</html>
